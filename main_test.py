@@ -3,8 +3,34 @@
 # This is a placeholder for the main application code. 
 # The main_menu function will be implemented here to provide a user interface for the conference management system.
 
-# Goal is to create a menu for the CMS that 
 
+# Connect to the database using the db_mysql module
+
+# db_mysql.py
+import mysql.connector
+
+
+
+def get_mysql_connection():
+    try:
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="YOUR_PASSWORD",
+            database="conference_management"
+        )
+        print("MySQL connection successful.")
+        return conn
+    except mysql.connector.Error as err:
+        print(f"MySQL error: {err}")
+        return None
+
+
+
+
+
+# Goal is to create a menu for the CMS first. 
+# Then will add extra functionality to the menu options.
 
 
 def main_menu():

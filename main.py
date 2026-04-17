@@ -1,3 +1,34 @@
+#! /usr/bin/env python3
+
+
+# db_mysql.py
+import mysql.connector
+
+
+def get_mysql_connection():
+    try:
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="YOUR_PASSWORD",
+            database="conference_management"
+        )
+        print("MySQL connection successful.")
+        return conn
+    except mysql.connector.Error as err:
+        print(f"MySQL error: {err}")
+        return None
+
+
+from db_mysql import get_mysql_connection
+
+conn = get_mysql_connection()
+
+
+
+
+# Menu for the Conference Management System (CMS)
+
 def main_menu():
     while True:
         print("\nConference Management")
@@ -11,7 +42,8 @@ def main_menu():
         print("5 - Add Attendee Connection")
         print("6 - View Rooms")
         print("x - Exit application")
-
+        
+        # Get user input for menu choice
         choice = input("Choice: ")
 
         if choice == "1":
@@ -28,7 +60,11 @@ def main_menu():
             print("\n[Option 6 selected] View Rooms\n")
         elif choice.lower() == "x":
             print("\nExiting application...")
+            
+            # Exit the loop and end the program
             break
+
+        # Handle invalid menu choices 
         else:
             print("\nInvalid choice. Please try again.")
 
