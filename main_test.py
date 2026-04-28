@@ -80,6 +80,91 @@ def main_menu():
                 print("Database connection failed.")
         elif choice == "2":
             print("\n[Option 2 selected] View Attendees by Company\n")
+            
+            while True:
+                company_id_input = input("Enter a valid Company ID (>0): ")
+
+                # 1. Check numeric
+                if not company_id_input.isdigit():
+                    print("Invalid input. Company ID must be a number.")
+                    continue
+
+                company_id = int(company_id_input)
+
+                # 2. Check > 0
+                if company_id <= 0:
+                    print("Invalid Company ID. Must be greater than 0.")
+                    continue
+
+                # If we reach here → numeric and > 0
+                break
+
+            conn = get_mysql_connection()
+            if conn:
+                cursor = conn.cursor()
+
+                # 3. Check if company exists
+                company_query = """
+                SELECT companyName
+                FROM company
+                WHERE companyID = %s
+                """
+
+                cursor.execute(company_query, (company_id,))
+                company_result = cursor.fetchone()
+
+                if not company_result:
+                    print("\nCompany ID exists as a number, but no such company was found.")
+                    cursor.close()
+                    conn.close()
+                else:
+                    company_name = company_result[0]
+                    print(f"\nCompany Found: {company_name}\n")
+
+                    # 4. Get attendees + session details
+                    attendee_query = """
+                    SELECT 
+                        a.attendeeName,
+                        a.dateOfBirth,
+                        s.sessionTitle,
+                        sp.speakerName,
+                        r.roomName
+                    FROM attendee a
+                    LEFT JOIN attendee_session asj ON a.attendeeID = asj.attendeeID
+                    LEFT JOIN session s ON asj.sessionID = s.sessionID
+                    LEFT JOIN speaker sp ON s.speakerID = sp.speakerID
+                    LEFT JOIN room r ON s.roomID = r.roomID
+                    WHERE a.companyID = %s
+                    ORDER BY a.attendeeName
+                    """
+
+                    cursor.execute(attendee_query, (company_id,))
+                    attendees = cursor.fetchall()
+
+                    if not attendees:
+                        print("This company exists, but has no attendees for any sessions.")
+                    else:
+                        # 5. Display results
+                        print("Attendees from this company:\n")
+
+                        for row in attendees:
+                            attendee_name = row[0]
+                            dob = row[1]
+                            session_title = row[2] if row[2] else "No session attended"
+                            speaker_name = row[3] if row[3] else "N/A"
+                            room_name = row[4] if row[4] else "N/A"
+
+                            print(f"Attendee Name: {attendee_name}")
+                            print(f"Date of Birth: {dob}")
+                            print(f"Session Title: {session_title}")
+                            print(f"Speaker: {speaker_name}")
+                            print(f"Room: {room_name}")
+                            print("---")
+
+                    cursor.close()
+                    conn.close()
+            else:
+                print("Database connection failed.")
         elif choice == "3":
             print("\n[Option 3 selected] Add New Attendee\n")
         elif choice == "4":
@@ -93,101 +178,6 @@ def main_menu():
             break
         else:
             print("\nInvalid choice. Please try again.")
-
-
-
-elif choice == "2":
-    print("\n[Option 2 selected] View Attendees by Company\n")
-
-    while True:
-        company_id_input = input("Enter a valid Company ID (>0): ")
-
-        # 1. Check numeric
-        if not company_id_input.isdigit():
-            print("Invalid input. Company ID must be a number.")
-            continue
-
-        company_id = int(company_id_input)
-
-        # 2. Check > 0
-        if company_id <= 0:
-            print("Invalid Company ID. Must be greater than 0.")
-            continue
-
-        # If we reach here → numeric and > 0
-        break
-
-    conn = get_mysql_connection()
-    if conn:
-        cursor = conn.cursor()
-
-        # 3. Check if company exists
-        company_query = """
-        SELECT companyName
-        FROM company
-        WHERE companyID = %s
-        """
-
-        cursor.execute(company_query, (company_id,))
-        company_result = cursor.fetchone()
-
-        if not company_result:
-            print("\nCompany ID exists as a number, but no such company was found.")
-            cursor.close()
-            conn.close()
-            return
-
-        company_name = company_result[0]
-        print(f"\nCompany Found: {company_name}\n")
-
-        # 4. Get attendees + session details
-        attendee_query = """
-        SELECT 
-            a.attendeeName,
-            a.dateOfBirth,
-            s.sessionTitle,
-            sp.speakerName,
-            r.roomName
-        FROM attendee a
-        LEFT JOIN attendee_session asj ON a.attendeeID = asj.attendeeID
-        LEFT JOIN session s ON asj.sessionID = s.sessionID
-        LEFT JOIN speaker sp ON s.speakerID = sp.speakerID
-        LEFT JOIN room r ON s.roomID = r.roomID
-        WHERE a.companyID = %s
-        ORDER BY a.attendeeName
-        """
-
-        cursor.execute(attendee_query, (company_id,))
-        attendees = cursor.fetchall()
-
-        if not attendees:
-            print("This company exists, but has no attendees for any sessions.")
-            cursor.close()
-            conn.close()
-            return
-
-        # 5. Display results
-        print("Attendees from this company:\n")
-
-        for row in attendees:
-            attendee_name = row[0]
-            dob = row[1]
-            session_title = row[2] if row[2] else "No session attended"
-            speaker_name = row[3] if row[3] else "N/A"
-            room_name = row[4] if row[4] else "N/A"
-
-            print(f"Attendee Name: {attendee_name}")
-            print(f"Date of Birth: {dob}")
-            print(f"Session Title: {session_title}")
-            print(f"Speaker: {speaker_name}")
-            print(f"Room: {room_name}")
-            print("---")
-
-        cursor.close()
-        conn.close()
-
-    else:
-        print("Database connection failed.")
 
 
 
