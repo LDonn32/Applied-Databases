@@ -1,59 +1,28 @@
 
 # db_neo4j.py
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, basic_auth
 
-URI = "neo4j://localhost:7687"
-USER = "neo4j"
-PASSWORD = "YOUR_PASSWORD"
+# Edit these to match your Neo4j local DB credentials
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "neo4j"   # <-- change this
 
-driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
-
-def run_query(query, params=None):
-    with driver.session() as session:
-        return session.run(query, params or {}).data()
+_driver = None
 
 
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+def get_neo4j_driver():
+    global _driver
+    if _driver is None:
+        _driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
+    return _driver
 
 
-d
- 
- 
- 
- 
+def close_neo4j_driver():
+    global _driver
+    if _driver:
+        _driver.close()
+        _driver = None
 
-
-d
- 
- 
- 
- 
- 
  
  
  
