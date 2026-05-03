@@ -8,7 +8,6 @@ from db_mysql import (
     attendee_exists,
     insert_attendee,
     get_attendee_name,
-    get_connected_attendees,
     get_all_rooms
 
 )
