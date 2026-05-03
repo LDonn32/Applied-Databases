@@ -4,28 +4,27 @@ from neo4j import GraphDatabase
 from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 
-
-# Neo4j Client class to manage connection and queries   
-
-class Neo4jClient:
-    def __init__(self, uri=NEO4J_URI, user=NEO4J_USER, password=NEO4J_PASSWORD):
-        self._driver = GraphDatabase.driver(uri, auth=(user, password))
-
-    def close(self):
-        if self._driver is not None:
-            self._driver.close()
-
-    def run_query(self, cypher, parameters=None):
-        parameters = parameters or {}
-        with self._driver.session() as session:
-            result = session.run(cypher, parameters)
-            return [record for record in result]
+# NEO4J CONNECTION
 
 
-# Create a single shared Neo4j client instance
-neo4j_client = Neo4jClient()
+def get_neo4j_driver():
+    return GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
 
+neo4j_driver = get_neo4j_driver()
+
+
+def run_query(cypher, params=None):
+    with neo4j_driver.session() as session:
+        result = session.run(cypher, params or {})
+        return list(result)
+
+
+def close_neo4j_driver():
+    neo4j_driver.close()
+
+
+rooms_cache = None
 
 # OPTION 4 — View Connected Attendees
 
@@ -40,7 +39,7 @@ def get_connected_attendees(attendee_id):
     ORDER BY b.attendeeID
     """
 
-    records = neo4j_client.run_query(cypher, {"id": attendee_id})
+    records = run_query(cypher, {"id": attendee_id})
 
     return [
         {"attendeeID": r["attendeeID"], "attendeeName": r["attendeeName"]}
@@ -56,7 +55,7 @@ def neo4j_attendee_exists(attendee_id):
     MATCH (a:Attendee {attendeeID: $id})
     RETURN a.attendeeID AS attendeeID
     """
-    records = neo4j_client.run_query(cypher, {"id": attendee_id})
+    records = run_query(cypher, {"id": attendee_id})
     return len(records) > 0
 
 
@@ -67,7 +66,7 @@ def create_neo4j_attendee(attendee_id, attendee_name):
         attendeeName: $name
     })
     """
-    neo4j_client.run_query(cypher, {"id": attendee_id, "name": attendee_name})
+    run_query(cypher, {"id": attendee_id, "name": attendee_name})
 
 
 def attendees_already_connected(id1, id2):
@@ -75,7 +74,7 @@ def attendees_already_connected(id1, id2):
     MATCH (a:Attendee {attendeeID: $id1})-[:CONNECTED_TO]-(b:Attendee {attendeeID: $id2})
     RETURN b.attendeeID AS attendeeID
     """
-    records = neo4j_client.run_query(cypher, {"id1": id1, "id2": id2})
+    records = run_query(cypher, {"id1": id1, "id2": id2})
     return len(records) > 0
 
 
@@ -86,9 +85,19 @@ def create_connection(id1, id2):
     MERGE (a)-[:CONNECTED_TO]->(b)
     MERGE (b)-[:CONNECTED_TO]->(a)
     """
-    neo4j_client.run_query(cypher, {"id1": id1, "id2": id2})
+    run_query(cypher, {"id1": id1, "id2": id2})
 
 
+# Sanity check for Neo4j connection when running this module directly
 
-
+if __name__ == "__main__":
+    try:
+        print("Testing Neo4j connection...")
+        with neo4j_driver.session() as session:
+            result = session.run("RETURN 1 AS test")
+            print("Neo4j test query result:", result.single()["test"])
+    except Exception as e:
+        print("Neo4j connection failed:", e)
+    finally:
+        close_neo4j_driver()
 

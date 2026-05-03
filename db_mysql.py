@@ -1,31 +1,24 @@
-# imports and config
+# imports
 
-import mysql.connector
-from mysql.connector import Error
-from config import (
-    MYSQL_HOST,
-    MYSQL_PORT,
-    MYSQL_USER,
-    MYSQL_PASSWORD,
-    MYSQL_DATABASE,
-)
+import pymysql
+from config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
-# MySQL CONNECTION 
+# MYSQL CONNECTION
 
 def get_mysql_connection():
-    try:
-        conn = mysql.connector.connect(
-            host=MYSQL_HOST,
-            port=MYSQL_PORT,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            database=MYSQL_DATABASE,
-        )
-        return conn
-    except Error as e:
-        print(f"[MySQL] Connection error: {e}")
-        return None
+    return pymysql.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        db=MYSQL_DATABASE,
+        charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor,
+    )
 
+
+def connect():
+    return get_mysql_connection()
 
 
 # GENERIC SELECT 
@@ -35,18 +28,18 @@ def fetch_all(query, params=None):
     if conn is None:
         return []
 
+    cursor = None
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         cursor.execute(query, params or ())
-        rows = cursor.fetchall()
-        return rows
-    except Error as e:
+        return cursor.fetchall()
+    except pymysql.MySQLError as e:
         print(f"[MySQL] Query error: {e}")
         return []
     finally:
-        if conn.is_connected():
+        if cursor is not None:
             cursor.close()
-            conn.close()
+        conn.close()
 
 
 # GENERIC INSERT/UPDATE/DELETE 
@@ -56,19 +49,20 @@ def execute_query(query, params=None):
     if conn is None:
         return False
 
+    cursor = None
     try:
         cursor = conn.cursor()
         cursor.execute(query, params or ())
         conn.commit()
         return True
-    except Error as e:
+    except pymysql.MySQLError as e:
         print(f"[MySQL] Query error: {e}")
         conn.rollback()
         return False
     finally:
-        if conn.is_connected():
+        if cursor is not None:
             cursor.close()
-            conn.close()
+        conn.close()
 
 
 
@@ -150,3 +144,22 @@ def get_attendee_name(attendee_id):
 def get_all_rooms():
     query = "SELECT roomID, roomName, roomCapacity FROM room ORDER BY roomID;"
     return fetch_all(query)
+
+
+# Sanity check for MySQL connection when running this module directly
+
+if __name__ == "__main__":
+    try:
+        print("Testing MySQL connection...")
+        conn = get_mysql_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 AS test;")
+            row = cursor.fetchone()
+            print("MySQL test query result:", row["test"])
+    except Exception as e:
+        print("MySQL connection failed:", e)
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
