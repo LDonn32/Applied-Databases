@@ -1,297 +1,269 @@
-#! /usr/bin/env python3
 
-# main.py
-import datetime
-from db_mysql import get_mysql_connection, close_mysql_connection
-from db_neo4j import get_neo4j_driver, close_neo4j_driver
+# IMPORTS
+
+from db_mysql import (
+    get_speakers_and_sessions,
+    get_attendees_by_company,
+    company_exists,
+    attendee_exists,
+    insert_attendee,
+    get_attendee_name,
+    get_connected_attendees,
+    get_all_rooms
+
+)
+
+from db_neo4j import (
+    get_connected_attendees,
+    neo4j_attendee_exists,
+    create_neo4j_attendee,
+    attendees_already_connected,
+    create_connection
+)
 
 
-def view_speakers_sessions():
-    speaker = input("Enter speaker name: ").strip()
-    print(f"\nSessions details for '{speaker}'")
-    print("------------------------------------------")
+# OPTION 1 — View Speakers & Sessions
 
-    conn = get_mysql_connection()
-    if not conn:
-        print("Database connection failed.")
+def view_speakers_and_sessions():
+    print("\nView Speakers & Sessions")
+    search = input("Enter speaker name : ").strip()
+
+    print(f"\nSession Details For : {search}")
+
+    rows = get_speakers_and_sessions(search)
+
+    if not rows:
+        print("No speakers found of that name")
         return
 
-    try:
-        cur = conn.cursor()
-        query = """
-            SELECT DISTINCT s.speakerName, se.sessionTitle, r.roomName
-            FROM session se
-            JOIN speaker s ON se.speakerID = s.speakerID
-            JOIN room r ON se.roomID = r.roomID
-            WHERE s.speakerName LIKE %s
-        """
-        cur.execute(query, (f"%{speaker}%",))
-        rows = cur.fetchall()
+    for row in rows:
+        print(row["speakerName"])
+        print(row["sessionTitle"])
+        print(row["roomName"])
+        print()
 
-        if rows:
-            for speakerName, sessionTitle, roomName in rows:
-                print(f"Speaker: {speakerName} | Session: {sessionTitle} | Room: {roomName}")
-        else:
-            print("No speaker was found of that name")
-    except Exception as e:
-        print(f"Error querying MySQL: {e}")
-    finally:
-        cur.close()
-        close_mysql_connection(conn)
 
+
+# OPTION 2 — View Attendees by Company
 
 def view_attendees_by_company():
-    conn = get_mysql_connection()
-    if not conn:
-        print("Database connection failed.")
-        return
+    print("\nView Attendees by Company")
 
-    cur = conn.cursor()
-    # Prompt until valid numeric > 0
     while True:
-        user_input = input("Enter Company ID (>0): ").strip()
-        try:
-            company_id = int(user_input)
-            if company_id > 0:
-                break
-            else:
-                print("Company ID must be greater than 0.")
-        except ValueError:
-            print("Invalid input. Please enter a numeric Company ID.")
+        company_input = input("Enter Company ID : ").strip()
 
-    try:
-        cur.execute("SELECT companyName FROM company WHERE companyID = %s", (company_id,))
-        company = cur.fetchone()
+        # Must be numeric
+        if not company_input.isdigit():
+            print("Enter Company ID : ", end="")
+            continue
 
-        if not company:
+        company_id = int(company_input)
+
+        # Must be > 0
+        if company_id <= 0:
+            print("Enter Company ID : ", end="")
+            continue
+
+        # Check if company exists
+        company_name = company_exists(company_id)
+        if not company_name:
             print(f"Company with ID {company_id} doesn't exist")
             return
 
-        company_name = company[0]
-        print(f"\nCompany Found: {company_name}\n")
+        # Fetch attendees
+        rows = get_attendees_by_company(company_id)
 
-        # Query attendees who registered for sessions (matches your provided SQL structure)
-        query = """
-            SELECT DISTINCT 
-                a.attendeeName, 
-                a.attendeeDOB, 
-                s.sessionTitle, 
-                sp.speakerName, 
-                s.sessionDate, 
-                ro.roomName
-            FROM attendee a
-            INNER JOIN registration r 
-                ON a.attendeeID = r.attendeeID
-            INNER JOIN session s 
-                ON r.sessionID = s.sessionID
-            LEFT JOIN speaker sp ON s.speakerID = sp.speakerID
-            LEFT JOIN room ro ON s.roomID = ro.roomID
-            WHERE a.attendeeCompanyID = %s
-            ORDER BY a.attendeeName
-        """
-        cur.execute(query, (company_id,))
-        rows = cur.fetchall()
+        print(f"\n{company_name} Attendees")
 
-        if rows:
-            print(f"{company_name} Attendees:\n")
-            for row in rows:
-                # row: attendeeName, attendeeDOB, sessionTitle, speakerName, sessionDate, roomName
-                name, dob, session_title, speaker_name, session_date, room_name = row
-                dob_str = dob.strftime("%Y-%m-%d") if isinstance(dob, datetime.date) else str(dob)
-                session_date_str = session_date.strftime("%Y-%m-%d") if isinstance(session_date, datetime.date) else str(session_date)
-                print(f"Name: {name}")
-                print(f"Date of Birth: {dob_str}")
-                print(f"Session Title: {session_title}")
-                print(f"Speaker: {speaker_name or 'N/A'}")
-                print(f"Session Date: {session_date_str or 'N/A'}")
-                print(f"Room: {room_name or 'N/A'}")
-                print("---")
-        else:
+        # Check if company has NO attendees
+        has_attendees = any(row["attendeeName"] is not None for row in rows)
+
+        if not has_attendees:
             print(f"No attendees found for {company_name}")
-    except Exception as e:
-        print(f"Error querying MySQL: {e}")
-    finally:
-        cur.close()
-        close_mysql_connection(conn)
+            return
 
+        # Print results
+        for row in rows:
+            if row["attendeeName"] is None:
+                continue
+
+            print(
+                f"{row['attendeeName']} | {row['attendeeDOB']} | "
+                f"{row['sessionTitle']} | {row['speakerName']} | "
+                f"{row['sessionDate']} | {row['roomName']}"
+            )
+
+        return
+
+
+# OPTION 3 — Add New Attendee
 
 def add_new_attendee():
-    conn = get_mysql_connection()
-    if not conn:
-        print("Database connection failed.")
+    print("\nAdd New Attendee")
+
+    # Attendee ID
+    attendee_id_input = input("Attendee ID : ").strip()
+
+    if not attendee_id_input.isdigit():
+        print("*** ERROR *** Invalid Attendee ID")
         return
 
-    cur = conn.cursor()
+    attendee_id = int(attendee_id_input)
+
+    if attendee_exists(attendee_id):
+        print(f"*** ERROR *** Attendee ID: {attendee_id} already exists")
+        return
+
+    # Name
+    name = input("Name : ").strip()
+
+    # DOB
+    dob = input("DOB : ").strip()
+
+    # Gender
+    gender = input("Gender : ").strip()
+    if gender not in ["Male", "Female"]:
+        print("*** ERROR *** Gender must be Male/Female")
+        return
+
+    # Company ID
+    company_input = input("Company ID : ").strip()
+    if not company_input.isdigit():
+        print("*** ERROR *** Invalid Company ID")
+        return
+
+    company_id = int(company_input)
+
+    if not company_exists(company_id):
+        print(f"*** ERROR *** Company ID: {company_id} does not exist")
+        return
+
+    # Insert attendee
     try:
-        # Collect input
-        new_user_id_input = input("Insert new user ID (leave blank to auto-generate): ").strip()
-        if new_user_id_input == "":
-            new_user_id = None
+        success = insert_attendee(attendee_id, name, dob, gender, company_id)
+        if success:
+            print("Attendee successfully added")
         else:
-            try:
-                new_user_id = int(new_user_id_input)
-                if new_user_id <= 0:
-                    print("ID must be > 0")
-                    return
-            except ValueError:
-                print("Invalid ID")
-                return
-
-        new_user_name = input("Insert new user Name: ").strip()
-        new_user_dob = input("Insert DOB (YYYY-MM-DD): ").strip()
-        new_user_gender = input("Insert Gender (Male/Female/Other): ").strip()
-        new_user_company_input = input("Insert Company ID: ").strip()
-        try:
-            new_user_company = int(new_user_company_input)
-        except ValueError:
-            print("Invalid Company ID")
-            return
-
-        # Validate date
-        try:
-            dob_obj = datetime.datetime.strptime(new_user_dob, "%Y-%m-%d").date()
-        except ValueError:
-            print("Invalid date format")
-            return
-
-        # Optional: check company exists
-        cur.execute("SELECT companyName FROM company WHERE companyID = %s", (new_user_company,))
-        if not cur.fetchone():
-            print("Company ID does not exist.")
-            return
-
-        # Build insert
-        if new_user_id is None:
-            insert_sql = """
-                INSERT INTO attendee (attendeeName, attendeeDOB, attendeeGender, attendeeCompanyID)
-                VALUES (%s, %s, %s, %s)
-            """
-            params = (new_user_name, dob_obj, new_user_gender, new_user_company)
-        else:
-            insert_sql = """
-                INSERT INTO attendee (attendeeID, attendeeName, attendeeDOB, attendeeGender, attendeeCompanyID)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-            params = (new_user_id, new_user_name, dob_obj, new_user_gender, new_user_company)
-
-        cur.execute(insert_sql, params)
-        conn.commit()
-        print("Attendee added")
+            print("*** ERROR *** Could not add attendee")
     except Exception as e:
-        conn.rollback()
-        print(f"Error adding attendee: {e}")
-    finally:
-        cur.close()
-        close_mysql_connection(conn)
+        print(f"*** ERROR *** {e}")
 
+
+
+# OPTION 4 — View Connected Attendees 
 
 def view_connected_attendees():
-    attendee = input("Enter Attendee ID: ").strip()
-    try:
-        attendee_id = int(attendee)
-    except ValueError:
-        print("*** ERROR *** Invalid attendee ID")
-        return
+    print("\nView Connected Attendees")
 
-    driver = get_neo4j_driver()
-    if not driver:
-        print("Neo4j connection failed.")
-        return
+    while True:
+        attendee_input = input("Enter Attendee ID : ").strip()
 
-    # Use default database name if your Neo4j DB uses a different name change below
-    # For Neo4j 5.x the database name is often "neo4j" unless you created a custom DB
-    database_name = "neo4j"
+        # Error condition: non-numeric
+        if not attendee_input.isdigit():
+            print("*** ERROR *** Invalid attendee ID")
+            continue
 
-    with driver.session(database=database_name) as session:
-        # Check attendee exists
-        result = session.run(
-            "MATCH (a:Attendee {AttendeeID: $id}) RETURN a.AttendeeID AS id, a.AttendeeName AS name",
-            id=attendee_id
-        )
-        record = result.single()
-        if not record:
+        attendee_id = int(attendee_input)
+
+        # Check MySQL for attendee name
+        attendee_name = get_attendee_name(attendee_id)
+
+        # Get Neo4j connections (this could be empty but putting in for sanity check)
+        connections = get_connected_attendees(attendee_id)
+
+        # Error condition: not in MySQL AND not in Neo4j
+        if not attendee_name and not connections:
             print("*** ERROR *** Attendee does not exist")
-            return
+            continue
 
-        print(f"Attendee ID: {record['id']} | Name: {record.get('name', 'N/A')}")
-        print("------------------------------")
+        # Print attendee name (from MySQL if available)
+        print(f"\nAttendee Name: {attendee_name if attendee_name else 'Unknown'}")
 
-        # Get connections
-        query = """
-            MATCH (a:Attendee {AttendeeID: $id})-[:CONNECTED_TO]-(b:Attendee)
-            RETURN b.AttendeeID AS id, b.AttendeeName AS name
-            ORDER BY b.AttendeeID
-        """
-        results = session.run(query, id=attendee_id)
-        connections = list(results)
-
+        # Case - attendee exists in MySQL but has no Neo4j connections
         if not connections:
             print("No connections")
-        else:
-            for r in connections:
-                print(f"-> Attendee {r['id']} | Name: {r.get('name', 'N/A')}")
+            return
 
-    # close driver only if you plan to exit app; otherwise keep open for reuse
-    # close_neo4j_driver()
+        # Case - attendee has connections
+        print("\nThese attendees are connected :")
+        for c in connections:
+            print(f"{c['attendeeID']} | {c['attendeeName']}")
 
+        return
+
+
+
+# OPTION 5 - Add Attendees connection
 
 def add_attendee_connection():
-    print("\n[Option 5] Add Attendee Connection\n")
-    try:
-        a1 = int(input("Enter Attendee ID 1: ").strip())
-        a2 = int(input("Enter Attendee ID 2: ").strip())
-    except ValueError:
-        print("Invalid IDs")
+    print("\nAdd Attendee Connection")
+
+    while True:
+        id1_input = input("Enter Attendee 1 ID : ").strip()
+        id2_input = input("Enter Attendee 2 ID : ").strip()
+
+        # Error: non-numeric
+        if not id1_input.isdigit() or not id2_input.isdigit():
+            print("*** ERROR *** Attendee IDs must be numbers")
+            continue
+
+        id1 = int(id1_input)
+        id2 = int(id2_input)
+
+        # Error - cannot connect to self
+        if id1 == id2:
+            print("*** ERROR *** An attendee cannot connect to him/herself")
+            continue
+
+        # Check MySQL existence
+        name1 = get_attendee_name(id1)
+        name2 = get_attendee_name(id2)
+
+        if not name1 or not name2:
+            print("*** ERROR *** One or both attendee IDs do not exist")
+            continue
+
+        # Ensure both nodes exist in Neo4j
+        if not neo4j_attendee_exists(id1):
+            create_neo4j_attendee(id1, name1)
+
+        if not neo4j_attendee_exists(id2):
+            create_neo4j_attendee(id2, name2)
+
+        # Check if already connected
+        if attendees_already_connected(id1, id2):
+            print("*** ERROR *** These attendees are already connected")
+            continue
+
+        # Create connection
+        create_connection(id1, id2)
+
+        print(f"Attendee {id1} is now connected to Attendee {id2}")
         return
 
-    driver = get_neo4j_driver()
-    if not driver:
-        print("Neo4j connection failed.")
-        return
 
-    database_name = "neo4j"
-    with driver.session(database=database_name) as session:
-        # Create bidirectional CONNECTED_TO relationship (single undirected relationship)
-        query = """
-            MATCH (a:Attendee {AttendeeID: $a1}), (b:Attendee {AttendeeID: $a2})
-            MERGE (a)-[r:CONNECTED_TO]-(b)
-            RETURN a.AttendeeID AS a, b.AttendeeID AS b
-        """
-        res = session.run(query, a1=a1, a2=a2)
-        rec = res.single()
-        if rec:
-            print(f"Connected attendee {rec['a']} and {rec['b']}")
-        else:
-            print("One or both attendees not found in Neo4j.")
-
+# OPTION 6 - View Rooms 
 
 def view_rooms():
-    conn = get_mysql_connection()
-    if not conn:
-        print("Database connection failed.")
+    print("\nView Rooms")
+
+    rows = get_all_rooms()
+
+    if not rows:
+        print("No rooms found")
         return
 
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT roomID, roomName FROM room ORDER BY roomID")
-        rows = cur.fetchall()
-        if rows:
-            print("\nRooms:")
-            for rid, rname in rows:
-                print(f"{rid} - {rname}")
-        else:
-            print("No rooms found.")
-    except Exception as e:
-        print(f"Error querying rooms: {e}")
-    finally:
-        cur.close()
-        close_mysql_connection(conn)
+    print("\nRoomID | RoomName | Capacity")
+    for row in rows:
+        print(f"{row['roomID']} | {row['roomName']} | {row['roomCapacity']}")
 
 
-def main_menu():
+# MAIN MENU LOOP
+
+def main():
     while True:
         print("\nConference Management")
-        print("----------------------")
+        print("MENU")
         print("1 - View Speakers & Sessions")
         print("2 - View Attendees by Company")
         print("3 - Add New Attendee")
@@ -303,7 +275,7 @@ def main_menu():
         choice = input("Choice: ").strip()
 
         if choice == "1":
-            view_speakers_sessions()
+            view_speakers_and_sessions()
         elif choice == "2":
             view_attendees_by_company()
         elif choice == "3":
@@ -315,28 +287,16 @@ def main_menu():
         elif choice == "6":
             view_rooms()
         elif choice.lower() == "x":
-            print("Exiting...")
-            # close neo4j driver if open
-            close_neo4j_driver()
+            print("Goodbye")
             break
         else:
-            print("Invalid choice. Please try again.")
+            print("Invalid choice")
 
+
+# Name gaurd for main menu loop
 
 if __name__ == "__main__":
-    main_menu()
-
-
-
-
-
-
-
-
-
-
-
-
+    main()
 
 
 

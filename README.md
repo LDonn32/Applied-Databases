@@ -94,3 +94,17 @@ This launches the conference management system menu.
 
 
 Virtual Environment - python 3.11.14 - windows x86_64-none
+
+
+
+
+
+
+
+
+
+
+
+
+
+
