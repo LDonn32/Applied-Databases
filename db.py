@@ -1,10 +1,12 @@
-
-
 # Database access layer for the Conference Management app.
 
-
+# datetime import is used for validating and formatting date fields from MySQLq
 import datetime
+
+# MySQL access is done via PyMySQL, a pure Python MySQL client library
 import pymysql
+
+# Neo4j access is done via the official Neo4j Python driver, which supports Bolt protocol
 from neo4j import GraphDatabase
 
 # Configuration for MySQL Connection

@@ -8,85 +8,89 @@ This project for applied databases demonstrates the implementation of a conferen
 - **MySQL**: Relational database for structured data such as speakers, sessions, attendees, companies
 - **Neo4j**: Graph database for relationship-based queries such as connected attendees, networks
 
-## Folder structure 
+
+
+
+
+## Prepare the databases
+
+MySQL
+
+Import the provided SQL:
+
+Install "pymysql":
+
+Run in your terminal:
+
+python -m pip install pymysql so we can connect to MYSQL with python.
+
+
+Neo4j
+
+
+
+Activate Neo4j.
+
+Open Folder-> C:\Users\appDB\Documents\neo4j-community-5.26.19\conf 
+OPen file -> neo4j.conf 
+Make sure dbms.default_database=appdbprojNeo4j 
+After that go to -> C:\Users\appDB\Documents\neo4j-community-5.26.19\bin -> cmd 
+Once the commander is open run -> neo4j.bat console Open http://localhost:7474/ and run the query given on: appdbprojNeo4j to make sure you have the connections.
+
+To upload the json data input the below into cmd from 
 
 ```
-Applied-Databases/
-├── main.py                      # Main application entry point
-├── main_test.py                 # Test file with CLI menu
-├── db_mysql.py                  # MySQL database connection module
-├── db_neo4j.py                  # Neo4j database connection module
-├── appdbproj.sql.txt            # MySQL database schema and setup statements
-├── appdbprojNeo4j.cypher        # Neo4j Cypher queries for initial data load
-└── README.md                    
+cmd
+cypher-shell,bat -u neo4j -p neo4jneo4j -f appdbprojNeo4j.json
 ```
 
-## Database Setup
-
-### MySQL
-- File: `appdbproj.sql.txt`
-- Contains: Database schema, table definitions, and initial data
-- Update credentials in `db_mysql.py` before connecting
-
-### Neo4j
-- File: `appdbprojNeo4j.cypher`
-- Contains: Cypher queries to create attendee nodes and connections
-- Run queries in Neo4j database console after setup
-
-## Features ..... so far 
 
 
-- View speakers and sessions
-- View attendees by company
-- Add new attendees
-- View connected attendees (graph relationships)
-- Add attendee connections
-- View available rooms
-- Interactive CLI menu
 
-# To do ...
 
-1. View speakers and sessions and make sure detailed query is possible.. so for each speaker show:
-Speaker name
-Title of session they are giving
-Name of the room session is in 
-Return to main menue
+Run the application
+From the project root 
 
-2. 
+cmd
+python main.py
+Follow the menu prompts.
 
-3. 
+Menu options (quick)
+View Speakers & Sessions — search by speaker name fragment.
 
-4. 
+View Attendees by Company — enter a numeric company ID (>0).
 
-5
+Add New Attendee — prompts for ID, name, DOB (YYYY-MM-DD), gender, company ID.
 
-## Getting Started
+View Connected Attendees — shows Neo4j connections for an attendee ID.
 
-### Prerequisites
-- Python 3.11+
-- MySQL Server
-- Neo4j Server
+Add Attendee Connection — creates CONNECTED_TO relationships in Neo4j (validates MySQL existence).
 
-### Installation
+View Rooms — cached on first call; restart app to refresh.
+x. Exit — terminates the program.
 
-1. Install required Python packages:
-```bash
-pip install mysql-connector-python neo4j
-```
+Testing checklist
+Option 6 (View Rooms) should list rooms and capacities.
 
-2. Set up MySQL database using `appdbproj.sql.txt`
+Option 1 (View Speakers & Sessions) should return speaker/session/room rows.
 
-3. Set up Neo4j database using `appdbprojNeo4j.cypher`
+Option 2 (View Attendees by Company) should return attendee/session rows or "No attendees found".
 
-4. Update database credentials in `db_mysql.py` and `db_neo4j.py`
+Option 3 (Add New Attendee) should insert a row into MySQL and show success.
 
-### Running the Application
+Option 4 (View Connected Attendees) should list connected attendees or "No connections".
 
-```bash
-python main_test.py
-```
+Option 5 (Add Attendee Connection) should create nodes/relationships in Neo4j and report success.
 
-This launches the conference management system menu.
+Troubleshooting (common issues)
+Connection refused / WinError 10061: Neo4j not running or Bolt port incorrect. Start Neo4j Desktop and confirm Bolt port (default 7687).
+
+cryptography runtime errors: install cryptography via pip
+
+Empty results: verify the correct database and that the sample data was imported.
+
+
+
 
 ## References
 

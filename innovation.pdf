@@ -1,0 +1,32 @@
+
+---
+
+### innovation.pdf content 
+```text
+
+
+
+
+1. Summary of the innovation
+----------------------------
+This project follows the required specification while aiming to improve portability by:
+- Replacing `mysql.connector` with `PyMySQL` to avoid environment-specific connector issues on the VM that was occuring during testing.
+- Adding robust dependency and environment instructions with pip upgrades
+- Providing a small import utility and clear Neo4j import instructions to make the Neo4j setup reproducible.
+
+
+2. Motivation and problem encountered
+------------------------------------
+During development and testing on the VM, the original MySQL connector (`mysql.connector`) caused installation and runtime issues in the virtual machine. 
+I think maybe the VM might not have the same preinstalled MySQL client libraries or if it does there was issues staying connected. 
+To ensure the application runs reliably on the VM without additional system packages, `PyMySQL` was chosen because:
+- It is a pure‑Python MySQL client and does not require native MySQL client libraries.
+- It installs cleanly via `pip` across platforms and Python versions commonly used in the VM.
+- It is compatible with the parameterized query style used in the application (`%s` placeholders).
+
+3. Steps taken (technical)
+--------------------------
+Centralised the connection logic in `db.py`. Previously was using seperate files for neo4j and MySQL drivers but was causing issues during testing in the VM. 
+The single file prevented issues after testing. 
+
+
