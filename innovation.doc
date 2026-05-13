@@ -1,0 +1,56 @@
+
+As part of developing and debugging the Conference Management application, I created a dedicated Python script called test_functions.py. 
+This script directly calls each database function (Options 1–6) without going through the interactive menu. 
+This addition significantly improved reliability, debugging, and ensured the application behaved exactly as required by the specification.
+
+
+SQL errors only appeared after navigating through the menu, making debugging slow and repetitive.
+
+Some functions depended on both MySQL and Neo4j, so a single mistake in one query caused the entire menu flow to break.
+
+The VM environment sometimes behaved differently from my local machine, so I needed a fast way to confirm that each function worked correctly on the VM.
+
+The project specification emphasises that the application must run correctly on the VM, so having a fast, repeatable testing method was handy and helpful.
+
+What the test script does:
+
+test_functions.py imports the functions from db.py and executes them one by one, simulating the behaviour of menu options:
+
+Option 1 — View Speakers & Sessions
+
+Option 2 — View Attendees by Company
+
+Option 3 — Add New Attendee
+
+Option 4 — View Connected Attendees
+
+Option 5 — Add Attendee Connection
+
+Option 6 — View Rooms
+
+Each function is executed with known test inputs, and any errors are printed immediately. 
+This allowed me to quickly identify:
+
+Incorrect SQL joins
+
+Wrong column names
+
+Missing tables
+
+Neo4j connection issues
+
+Data‑type mismatches
+
+Logic errors in the Python code
+
+
+
+
+
+
+
+
+
+
+
+
