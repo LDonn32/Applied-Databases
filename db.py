@@ -83,6 +83,7 @@ def view_speakers_sessions():
     finally:
         conn.close()
 
+
 # Option 2 - View Attendees by Company
 
 def view_attendees_by_company():
@@ -101,6 +102,7 @@ def view_attendees_by_company():
             except ValueError:
                 print("*** ERROR *** Invalid Company ID")
 
+        # Check company exists
         cur.execute("SELECT companyName FROM company WHERE companyID = %s", (company_id,))
         company = cur.fetchone()
         if not company:
@@ -108,20 +110,23 @@ def view_attendees_by_company():
             return
         company_name = company[0]
 
+        # Correct SQL query
         query = """
-            SELECT DISTINCT 
-                a.attendeeName, 
-                a.attendeeDOB, 
-                s.sessionTitle, 
-                s.speakerName, 
-                s.sessionDate, 
+            SELECT 
+                a.attendeeName,
+                a.attendeeDOB,
+                se.sessionTitle,
+                sp.speakerName,
+                se.sessionDate,
                 r.roomName
             FROM attendee a
-            INNER JOIN attendee_session asn ON a.attendeeID = asn.attendeeID
-            INNER JOIN session s ON asn.sessionID = s.sessionID
-            INNER JOIN room r ON s.roomID = r.roomID
+            JOIN attendee_session ats ON a.attendeeID = ats.attendeeID
+            JOIN session se ON ats.sessionID = se.sessionID
+            JOIN speaker sp ON se.sessionSpeakerID = sp.speakerID
+            JOIN room r ON se.sessionRoomID = r.roomID
             WHERE a.attendeeCompanyID = %s
         """
+
         cur.execute(query, (company_id,))
         rows = cur.fetchall()
 
@@ -129,11 +134,12 @@ def view_attendees_by_company():
             print(f"\n{company_name} Attendees:\n")
             for row in rows:
                 attendee_name = row[0]
-                attendee_dob = row[1].strftime("%Y-%m-%d") if isinstance(row[1], (datetime.date, datetime.datetime)) else str(row[1])
+                attendee_dob = row[1]
                 session_title = row[2]
                 speaker_name = row[3]
-                session_date = row[4].strftime("%Y-%m-%d") if isinstance(row[4], (datetime.date, datetime.datetime)) else str(row[4])
+                session_date = row[4]
                 room_name = row[5]
+
                 print(
                     f"Attendee: {attendee_name} | DOB: {attendee_dob} | "
                     f"Session: {session_title} | Speaker: {speaker_name} | "
@@ -141,8 +147,10 @@ def view_attendees_by_company():
                 )
         else:
             print(f"No attendees found for {company_name}")
+
     finally:
         conn.close()
+
 
 # Option 3 - Add New Attendee
 
