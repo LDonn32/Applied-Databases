@@ -68,8 +68,10 @@ x. Exit — terminates the program.
 
 
 
-Additional testing utility
+## Additional testing utility
 `test_functions.py` is a helper script that exercises the same `db.py` functions used by `main.py` directly. It is used for testing and debugging database behavior without having to navigate the interactive menu options.
+
+This is expanded on in the innvation.doc
 
 Testing checklist
 Option 6 (View Rooms) should list rooms and capacities.
